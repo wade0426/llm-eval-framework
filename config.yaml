@@ -1,0 +1,53 @@
+# ===========================
+# LLM Eval Framework Config
+# ===========================
+
+dataset:
+  input_path: "data/golden/golden_dataset.csv"      # 輸入 CSV 路徑
+  output_path: "data/output/result.csv"             # 輸出 CSV 路徑（新檔）
+  output_mode: "new"                                # "new" | "overwrite"
+  encoding: "utf-8"                                 # CSV 編碼
+
+column_mapping:
+  answer_column: "expected_output"                  # 標準答案欄位（不可傳給 primary LLM）
+
+  input_columns:
+    merge: true                                     # false: 用第一個欄位；true: 多欄合併
+    columns:
+      - "input"
+      # - "context"
+    # merge_template: "{question}\n\nContext: {context}"
+    merge_template: "{input}"
+
+  output_column: "llm_answer"                       # primary LLM 回答欄位
+
+primary_llm:
+  base_url: "https://ws-02.wade0426.me/v1"
+  api_key: "${OPENAI_API_KEY}"
+  model: "gpt-4o"
+  system_prompt: |
+    你是一個專業的問答助手，請根據問題給出精確的回答。
+  temperature: 0.1
+  max_tokens: 16384
+  timeout_seconds: 600
+
+execution:
+  max_retries: 1
+  retry_delay_seconds: 2
+  rate_limit_rpm: 10
+  checkpoint_path: "data/checkpoints/.checkpoint.json"
+  batch_log_interval: 10
+
+judge:
+  enabled: false
+  base_url: "https://api.openai.com/v1"
+  api_key: "${JUDGE_API_KEY}"
+  model: "gpt-4o"
+  output_column: "judge_score"
+  system_prompt: |
+    你是一位嚴格的評審。你將收到一個問題、一個標準答案和一個模型回答。
+    請評估模型回答的正確性，並以 JSON 格式回覆：
+    {"score": 0~1的浮點數, "reason": "評分理由"}
+  temperature: 0.0
+  max_tokens: 512
+  timeout_seconds: 30
