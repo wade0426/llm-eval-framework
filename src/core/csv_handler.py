@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import threading
 from pathlib import Path
 
 import pandas as pd
@@ -10,6 +11,7 @@ from src.models.config_schema import AppConfig
 class CsvHandler:
     def __init__(self, config: AppConfig):
         self.config = config
+        self._lock = threading.Lock()
 
     def load(self) -> pd.DataFrame:
         input_path = self.config.dataset.input_path
@@ -48,5 +50,6 @@ class CsvHandler:
         df.to_csv(destination, index=False, encoding=self.config.dataset.encoding)
 
     def update_row(self, df: pd.DataFrame, index: int, column: str, value: str) -> pd.DataFrame:
-        df.at[index, column] = value
+        with self._lock:
+            df.at[index, column] = value
         return df

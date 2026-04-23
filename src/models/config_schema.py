@@ -12,6 +12,11 @@ class OutputMode(str, Enum):
     OVERWRITE = "overwrite"
 
 
+class ConversationLogMode(str, Enum):
+    APPEND = "append"
+    LATEST_ONLY = "latest_only"
+
+
 class DatasetConfig(BaseModel):
     input_path: str
     output_path: str
@@ -60,6 +65,13 @@ class ExecutionConfig(BaseModel):
     rate_limit_rpm: int = 60
     checkpoint_path: str
     batch_log_interval: int = 10
+    max_workers: int = Field(default=1, ge=1)
+
+
+class ConversationLogConfig(BaseModel):
+    enabled: bool = False
+    log_path: str = "data/output/conversation.jsonl"
+    log_mode: ConversationLogMode = ConversationLogMode.APPEND
 
 
 class AppConfig(BaseModel):
@@ -67,6 +79,7 @@ class AppConfig(BaseModel):
     column_mapping: ColumnMappingConfig
     primary_llm: LLMConfig
     execution: ExecutionConfig
+    conversation_log: ConversationLogConfig = Field(default_factory=ConversationLogConfig)
     judge: JudgeConfig = Field(default_factory=lambda: JudgeConfig(
         enabled=False,
         base_url="https://api.openai.com/v1",
@@ -111,6 +124,9 @@ class AppConfig(BaseModel):
                 raise ValueError(
                     "judge.output_column must not be equal to column_mapping.answer_column or column_mapping.output_column"
                 )
+
+        if self.conversation_log.enabled and not self.conversation_log.log_path.strip():
+            raise ValueError("conversation_log.log_path must not be empty when conversation_log.enabled=true")
 
         return self
 

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import logging
+import threading
 from datetime import datetime
 from pathlib import Path
 
@@ -14,6 +15,7 @@ class CheckpointManager:
         self.checkpoint_path = Path(checkpoint_path)
         self.input_path = input_path
         self.processed_indices: set[int] = set()
+        self._lock = threading.Lock()
 
     def load(self) -> set[int]:
         if not self.checkpoint_path.exists():
@@ -37,19 +39,20 @@ class CheckpointManager:
         return self.processed_indices
 
     def mark_done(self, index: int) -> None:
-        self.processed_indices.add(index)
-        self.checkpoint_path.parent.mkdir(parents=True, exist_ok=True)
+        with self._lock:
+            self.processed_indices.add(index)
+            self.checkpoint_path.parent.mkdir(parents=True, exist_ok=True)
 
-        payload = {
-            "input_path": self.input_path,
-            "processed_indices": sorted(self.processed_indices),
-            "last_updated": datetime.now().isoformat(timespec="seconds"),
-        }
+            payload = {
+                "input_path": self.input_path,
+                "processed_indices": sorted(self.processed_indices),
+                "last_updated": datetime.now().isoformat(timespec="seconds"),
+            }
 
-        tmp_path = self.checkpoint_path.with_suffix(self.checkpoint_path.suffix + ".tmp")
-        with tmp_path.open("w", encoding="utf-8") as fp:
-            json.dump(payload, fp, ensure_ascii=False, indent=2)
-        tmp_path.replace(self.checkpoint_path)
+            tmp_path = self.checkpoint_path.with_suffix(self.checkpoint_path.suffix + ".tmp")
+            with tmp_path.open("w", encoding="utf-8") as fp:
+                json.dump(payload, fp, ensure_ascii=False, indent=2)
+            tmp_path.replace(self.checkpoint_path)
 
     def clear(self) -> None:
         if self.checkpoint_path.exists():

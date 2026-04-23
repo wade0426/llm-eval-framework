@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from concurrent.futures import ThreadPoolExecutor
+
 import pandas as pd
 
 from src.core.csv_handler import CsvHandler
@@ -80,3 +82,22 @@ def test_get_pending_rows(tmp_path):
     df = handler.load()
     pending = handler.get_pending_rows(df, {0})
     assert pending == [1]
+
+
+def test_update_row_thread_safe(tmp_path):
+    input_path = tmp_path / "in.csv"
+    output_path = tmp_path / "out.csv"
+    rows = [{"question": f"q{i}", "expected_answer": f"a{i}"} for i in range(50)]
+    pd.DataFrame(rows).to_csv(input_path, index=False)
+    handler = CsvHandler(_config(tmp_path, str(input_path), str(output_path)))
+    df = handler.load()
+
+    def _update(i: int):
+        handler.update_row(df, i, "llm_answer", f"r{i}")
+
+    with ThreadPoolExecutor(max_workers=8) as executor:
+        for i in range(50):
+            executor.submit(_update, i)
+
+    for i in range(50):
+        assert df.loc[i, "llm_answer"] == f"r{i}"
