@@ -33,10 +33,10 @@ primary_llm:
 execution:
   max_retries: 1
   retry_delay_seconds: 2
-  rate_limit_rpm: 10
+  rate_limit_rpm: 999
   checkpoint_path: "data/checkpoints/.checkpoint.json"
   batch_log_interval: 10
-  max_workers: 4
+  max_workers: 2
 
 judge:
   enabled: false
