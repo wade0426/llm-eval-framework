@@ -21,8 +21,8 @@ column_mapping:
   output_column: "llm_answer"                       # primary LLM 回答欄位
 
 primary_llm:
-  base_url: "https://ws-02.wade0426.me/v1"
-  api_key: "${OPENAI_API_KEY}"
+  base_url: "https://dgx-02-8081.wade0426.me/v1"
+  api_key: "test"
   model: "gpt-4o"
   system_prompt: |
     你是一個專業的問答助手，請根據問題給出精確的回答。
@@ -41,7 +41,7 @@ execution:
 judge:
   enabled: false
   base_url: "https://api.openai.com/v1"
-  api_key: "${JUDGE_API_KEY}"
+  api_key: "test"
   model: "gpt-4o"
   output_column: "judge_score"
   system_prompt: |
