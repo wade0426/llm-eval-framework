@@ -28,11 +28,10 @@ class CsvHandler:
             raise ValueError(f"Missing required CSV columns: {sorted(missing)}")
 
         output_column = self.config.column_mapping.output_column
-        if output_column not in df.columns:
-            df[output_column] = ""
+        self._ensure_text_column(df, output_column)
 
-        if self.config.judge.enabled and self.config.judge.output_column not in df.columns:
-            df[self.config.judge.output_column] = ""
+        if self.config.judge.enabled:
+            self._ensure_text_column(df, self.config.judge.output_column)
 
         return df
 
@@ -53,3 +52,11 @@ class CsvHandler:
         with self._lock:
             df.at[index, column] = value
         return df
+
+    @staticmethod
+    def _ensure_text_column(df: pd.DataFrame, column: str) -> None:
+        if column not in df.columns:
+            df[column] = ""
+            return
+
+        df[column] = df[column].astype("object").fillna("")

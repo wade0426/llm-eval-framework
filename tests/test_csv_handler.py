@@ -3,6 +3,7 @@ from __future__ import annotations
 from concurrent.futures import ThreadPoolExecutor
 
 import pandas as pd
+from pandas.api.types import is_object_dtype
 
 from src.core.csv_handler import CsvHandler
 from src.models.config_schema import (
@@ -101,3 +102,26 @@ def test_update_row_thread_safe(tmp_path):
 
     for i in range(50):
         assert df.loc[i, "llm_answer"] == f"r{i}"
+
+
+def test_load_coerces_existing_numeric_output_column_to_text(tmp_path):
+    input_path = tmp_path / "in.csv"
+    output_path = tmp_path / "out.csv"
+    pd.DataFrame(
+        [
+            {"question": "q1", "expected_answer": "a1", "llm_answer": 1.0},
+            {"question": "q2", "expected_answer": "a2", "llm_answer": None},
+        ]
+    ).to_csv(input_path, index=False)
+
+    handler = CsvHandler(_config(tmp_path, str(input_path), str(output_path), mode="new"))
+    df = handler.load()
+
+    assert is_object_dtype(df["llm_answer"])
+    assert df.loc[1, "llm_answer"] == ""
+
+    handler.update_row(df, 0, "llm_answer", "Acetaminophen 的中文名稱是對乙醯胺酚")
+    handler.save(df)
+
+    saved = pd.read_csv(output_path)
+    assert saved.loc[0, "llm_answer"] == "Acetaminophen 的中文名稱是對乙醯胺酚"
