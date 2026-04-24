@@ -3,7 +3,7 @@ from __future__ import annotations
 import pandas as pd
 import pytest
 
-from src.core.prompt_builder import build_judge_prompt, build_user_prompt
+from src.core.prompt_builder import build_judge_prompt, build_user_content, build_user_prompt
 from src.models.config_schema import (
     AppConfig,
     ColumnMappingConfig,
@@ -12,12 +12,13 @@ from src.models.config_schema import (
     InputColumnConfig,
     JudgeConfig,
     LLMConfig,
+    OutputMode,
 )
 
 
 def _config(merge: bool = False) -> AppConfig:
     return AppConfig(
-        dataset=DatasetConfig(input_path="in.csv", output_path="out.csv", output_mode="new", encoding="utf-8"),
+        dataset=DatasetConfig(input_path="in.csv", output_path="out.csv", output_mode=OutputMode.NEW, encoding="utf-8"),
         column_mapping=ColumnMappingConfig(
             answer_column="expected_answer",
             input_columns=InputColumnConfig(
@@ -80,3 +81,16 @@ def test_build_judge_prompt():
     assert "Q" in prompt
     assert "A" in prompt
     assert "E" in prompt
+
+
+def test_build_user_content_without_images_returns_string():
+    content = build_user_content("What is in this image?", None)
+    assert content == "What is in this image?"
+
+
+def test_build_user_content_with_images_returns_parts_and_text_first():
+    image_parts = [{"type": "image_url", "image_url": {"url": "data:image/png;base64,xxx", "detail": "auto"}}]
+    content = build_user_content("Describe", image_parts)
+    assert isinstance(content, list)
+    assert content[0] == {"type": "text", "text": "Describe"}
+    assert content[1:] == image_parts

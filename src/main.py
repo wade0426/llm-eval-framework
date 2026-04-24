@@ -45,8 +45,18 @@ def main() -> None:
         logger.info("Running in dry-run mode. Validating first 3 prompts.")
         max_rows = min(3, len(df.index))
         for i in range(max_rows):
-            prompt = build_user_prompt(df.iloc[i], config)
-            logger.info("Dry-run prompt[%d]: %s", i, prompt)
+            row = df.iloc[i]
+            prompt = build_user_prompt(row, config)
+            if config.image.enabled:
+                image_raw = row.get(config.image.image_column, "")
+                logger.info(
+                    "Dry-run prompt[%d]: %s | image_paths_raw=%s",
+                    i,
+                    prompt,
+                    image_raw,
+                )
+            else:
+                logger.info("Dry-run prompt[%d]: %s", i, prompt)
         logger.info("Dry-run completed. No API calls, no file modifications.")
         return
 

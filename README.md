@@ -10,6 +10,7 @@
 - **冪等性與斷點續跑：** 自動記錄已處理進度（Checkpoint），中斷後重跑不會重複呼叫 API 或造成資料汙染。
 - **[V2] 多線程並行推論：** 支援 ThreadPoolExecutor 並行處理，透過 `max_workers` 大幅提升評測吞吐量。
 - **[V2] 對話紀錄持久化：** 支援輸出 JSONL 格式的完整對話日誌，便於後續分析每一次的 Prompt 與 Response。
+- **[V3] 多模態圖片支援（Vision）：** 支援載入本地圖片並以 Data URI (Base64) 格式與文字 Prompt 整合，向後相容純文字評測。支援多張圖片（分號分隔）。
 
 ---
 
@@ -90,6 +91,13 @@ conversation_log:                                   # [V2] 對話紀錄設定
   enabled: true
   log_path: "data/output/conversation.jsonl"
   log_mode: "append"                                # "append" 或 "latest_only"
+
+image:                                              # [V3] 多模態圖片設定
+  enabled: true                                     # 是否傳送圖片（預設 false 為純文字模式）
+  image_column: "image_path"                        # CSV 中的圖片欄位名稱
+  base_dir: "./data/golden/images"                  # 本地圖片根目錄
+  detail: "auto"                                    # OpenAI Vision 參數: "auto" | "low" | "high"
+  separator: ";"                                    # 單一欄位中多張圖片的切分符號（不可為逗號）
 ```
 
 ---
@@ -134,12 +142,30 @@ python -m src.main --reset-checkpoint -c config.yaml
 
 ### 📝 對話紀錄持久化 (Conversation Logger)
 透過設定 `conversation_log` 區塊，系統可以即時將每一筆推論細節寫入 JSONL 檔案。
-- 單行 JSON 包含：`index`, `timestamp`, `system_prompt`, `user_prompt`, `llm_response`, `status`, `duration_seconds`。
+- 單行 JSON 包含：`index`, `timestamp`, `system_prompt`, `user_prompt`, `image_paths` (V3 支援), `llm_response`, `status`, `duration_seconds`。
 - **Lock-protected Flush**：即使在多線程高併發下，寫入依然保證行級別的完整性，並在每次寫入後呼叫 `flush()` 立即落盤，確保程式崩潰時不掉 Log。
 
 ---
 
-## 5. 測試 (Testing)
+## 5. V3 多模態圖片支援 (Phase 8-10)
+
+V3 支援 OpenAI 的 Vision API 格式。系統會讀取本地圖片，將其轉為 Base64 (Data URI) 格式後與 Prompt 並列送入 LLM。
+
+### 📌 向後相容與開關設定
+- 當 `image.enabled: false` 時，系統回歸純文字模式（V2 行為），不受任何圖片影響。
+- 當啟用圖片時，CSV 中**允許該欄位留空**。對於沒有圖片的橫列，LLM 仍會接收單純的文字 Prompt，不會因為沒有圖片而報錯。
+
+### 🖼️ 多張圖片與路徑解析
+為避免與 CSV 的 `,` 逗號格式衝突，請在 CSV 儲存格中使用**分號** `;` (由 `image.separator` 決定) 串接多張圖片。
+- 舉例：`1.png;2.jpg;folder/3.webp`
+- 系統會透過 `image.base_dir` 將相對路徑拼接為絕對路徑進行讀取。
+
+### ⚠️ 圖片錯誤處理 (`__IMAGE_ERROR__`)
+若某列資料的圖片檔案不存在、或副檔名不支援，**該單筆資料**的評測結果會直接被標記為 `__IMAGE_ERROR__`，不會發送請求至 LLM（節省 Token 成本），且**不影響其他並發 Thread** 的繼續執行，確保大規模評測的穩定度。
+
+---
+
+## 6. 測試 (Testing)
 
 專案包含完整的 Pytest 單元與整合測試，覆蓋了邊界防護、Retry 機制與多線程安全。
 
@@ -150,14 +176,15 @@ pytest -q
 
 **測試涵蓋範圍包含：**
 - **Config Loader**：環境變數插值與 Pydantic 防呆驗證（例如答案欄位洩漏檢查）。
-- **Prompt Builder**：多欄位合併模板與強隔離斷言。
+- **Prompt Builder**：多欄位合併模板與強隔離斷言、V3 多模態 Payload (Content Parts)。
 - **LLM Client**：Tenacity 指數退避 Retry 與 RateLimiter 邏輯。
 - **Thread Safety**：在多線程併發環境下的 `Checkpoint.mark_done` 與 `CsvHandler.update_row` 不會產生 Race Condition。
 - **Conversation Logger**：`append` 與 `latest_only` 模式以及並發寫入完整性。
+- **Image Loader**：Base64/MIME 解析與錯誤處理（File Not Found）。
 
 ---
 
-## 6. 專案架構 (Project Structure)
+## 7. 專案架構 (Project Structure)
 
 ```text
 llm-eval-framework/
@@ -169,6 +196,7 @@ llm-eval-framework/
 │   │   ├── prompt_builder.py      # Prompt 組裝與答案隔離
 │   │   ├── llm_client.py          # API 客戶端與重試機制
 │   │   ├── judge.py               # LLM-as-a-Judge 邏輯
+│   │   ├── image_loader.py        # [V3] 圖片載入與多模態 Base64 解析
 │   │   ├── checkpoint.py          # 斷點管理 (Thread-safe)
 │   │   ├── conversation_logger.py # JSONL 對話紀錄 (Thread-safe)
 │   │   └── runner.py              # 並行調度器 Orchestrator

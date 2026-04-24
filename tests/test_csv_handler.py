@@ -3,6 +3,7 @@ from __future__ import annotations
 from concurrent.futures import ThreadPoolExecutor
 
 import pandas as pd
+import pytest
 from pandas.api.types import is_object_dtype
 
 from src.core.csv_handler import CsvHandler
@@ -11,15 +12,23 @@ from src.models.config_schema import (
     ColumnMappingConfig,
     DatasetConfig,
     ExecutionConfig,
+    ImageDetail,
+    ImageConfig,
     InputColumnConfig,
     JudgeConfig,
     LLMConfig,
+    OutputMode,
 )
 
 
 def _config(tmp_path, input_path: str, output_path: str, mode: str = "new") -> AppConfig:
     return AppConfig(
-        dataset=DatasetConfig(input_path=input_path, output_path=output_path, output_mode=mode, encoding="utf-8"),
+        dataset=DatasetConfig(
+            input_path=input_path,
+            output_path=output_path,
+            output_mode=OutputMode(mode),
+            encoding="utf-8",
+        ),
         column_mapping=ColumnMappingConfig(
             answer_column="expected_answer",
             input_columns=InputColumnConfig(merge=False, columns=["question"], merge_template=""),
@@ -52,6 +61,7 @@ def _config(tmp_path, input_path: str, output_path: str, mode: str = "new") -> A
             max_tokens=16,
             timeout_seconds=30,
         ),
+        image=ImageConfig(enabled=False),
     )
 
 
@@ -125,3 +135,22 @@ def test_load_coerces_existing_numeric_output_column_to_text(tmp_path):
 
     saved = pd.read_csv(output_path)
     assert saved.loc[0, "llm_answer"] == "Acetaminophen 的中文名稱是對乙醯胺酚"
+
+
+def test_load_requires_image_column_when_image_enabled(tmp_path):
+    input_path = tmp_path / "in.csv"
+    output_path = tmp_path / "out.csv"
+    pd.DataFrame([{"question": "q1", "expected_answer": "a1"}]).to_csv(input_path, index=False)
+
+    cfg = _config(tmp_path, str(input_path), str(output_path), mode="new")
+    cfg.image = ImageConfig(
+        enabled=True,
+        image_column="image_path",
+        base_dir=".",
+        detail=ImageDetail.AUTO,
+        separator=";",
+    )
+
+    handler = CsvHandler(cfg)
+    with pytest.raises(ValueError):
+        handler.load()

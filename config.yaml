@@ -56,3 +56,10 @@ conversation_log:
   enabled: true
   log_path: "data/output/conversation.jsonl"
   log_mode: "append"
+
+image:
+  enabled: false                                    # 是否啟用多模態圖片輸入（為 true 時，LLM 需支援 Vision API）
+  image_column: "image_path"                        # CSV 中存放圖片路徑的欄位名稱
+  base_dir: "./data/golden/images"                  # 圖片的根目錄路徑（會與 CSV 中的路徑拼接）
+  detail: "auto"                                    # OpenAI Vision detail 參數："auto", "low" 或 "high"
+  separator: ";"                                    # 多張圖片的字串分隔符（預設為分號，不可為逗號）

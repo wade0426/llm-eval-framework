@@ -19,6 +19,7 @@ def test_conversation_logger_append_mode(tmp_path):
     assert len(lines) == 2
     assert json.loads(lines[0])["index"] == 0
     assert json.loads(lines[1])["index"] == 1
+    assert json.loads(lines[0])["image_paths"] is None
 
 
 def test_conversation_logger_latest_only_mode(tmp_path):
@@ -60,3 +61,22 @@ def test_conversation_logger_thread_safe_append(tmp_path):
     assert len(lines) == 50
     parsed = [json.loads(line) for line in lines]
     assert {item["index"] for item in parsed} == set(range(50))
+
+
+def test_conversation_logger_records_image_paths(tmp_path):
+    path = tmp_path / "conversation.jsonl"
+    logger = ConversationLogger(
+        ConversationLogConfig(enabled=True, log_path=str(path), log_mode=ConversationLogMode.APPEND)
+    )
+    logger.log(
+        index=0,
+        system_prompt="s",
+        user_prompt="u",
+        llm_response="r",
+        status="success",
+        duration_seconds=0.2,
+        image_paths=["/abs/path/a.png", "/abs/path/b.jpg"],
+    )
+
+    payload = json.loads(path.read_text(encoding="utf-8").strip())
+    assert payload["image_paths"] == ["/abs/path/a.png", "/abs/path/b.jpg"]

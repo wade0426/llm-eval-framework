@@ -45,6 +45,12 @@ execution:
   rate_limit_rpm: 60
   checkpoint_path: .cp.json
   batch_log_interval: 10
+image:
+  enabled: true
+  image_column: image_path
+  base_dir: ./images
+  detail: auto
+  separator: ";"
 judge:
   enabled: false
   base_url: https://api.openai.com/v1
@@ -60,6 +66,8 @@ judge:
 
     cfg = load_config(config_path)
     assert cfg.primary_llm.api_key == "k1"
+    assert cfg.image.enabled is True
+    assert cfg.image.image_column == "image_path"
 
 
 def test_load_config_missing_env_raises(tmp_path):
@@ -139,6 +147,112 @@ execution:
   rate_limit_rpm: 60
   checkpoint_path: .cp.json
   batch_log_interval: 10
+judge:
+  enabled: false
+  base_url: https://api.openai.com/v1
+  api_key: x
+  model: gpt-4o
+  output_column: judge_score
+  system_prompt: judge
+  temperature: 0
+  max_tokens: 16
+  timeout_seconds: 30
+""",
+    )
+    with pytest.raises(ConfigValidationError):
+        load_config(config_path)
+
+
+def test_invalid_image_separator_rejected(tmp_path, monkeypatch):
+    monkeypatch.setenv("OPENAI_API_KEY", "k1")
+    config_path = _write_config(
+        tmp_path,
+        """
+dataset:
+  input_path: input.csv
+  output_path: out.csv
+  output_mode: new
+  encoding: utf-8
+column_mapping:
+  answer_column: expected_answer
+  input_columns:
+    merge: false
+    columns: [question]
+    merge_template: ""
+  output_column: llm_answer
+primary_llm:
+  base_url: https://api.openai.com/v1
+  api_key: ${OPENAI_API_KEY}
+  model: gpt-4o
+  system_prompt: test
+  temperature: 0
+  max_tokens: 16
+  timeout_seconds: 30
+execution:
+  max_retries: 3
+  retry_delay_seconds: 2
+  rate_limit_rpm: 60
+  checkpoint_path: .cp.json
+  batch_log_interval: 10
+image:
+  enabled: true
+  image_column: image_path
+  base_dir: ./images
+  detail: auto
+  separator: ","
+judge:
+  enabled: false
+  base_url: https://api.openai.com/v1
+  api_key: x
+  model: gpt-4o
+  output_column: judge_score
+  system_prompt: judge
+  temperature: 0
+  max_tokens: 16
+  timeout_seconds: 30
+""",
+    )
+    with pytest.raises(ConfigValidationError):
+        load_config(config_path)
+
+
+def test_image_column_conflict_with_output_column_rejected(tmp_path, monkeypatch):
+    monkeypatch.setenv("OPENAI_API_KEY", "k1")
+    config_path = _write_config(
+        tmp_path,
+        """
+dataset:
+  input_path: input.csv
+  output_path: out.csv
+  output_mode: new
+  encoding: utf-8
+column_mapping:
+  answer_column: expected_answer
+  input_columns:
+    merge: false
+    columns: [question]
+    merge_template: ""
+  output_column: llm_answer
+primary_llm:
+  base_url: https://api.openai.com/v1
+  api_key: ${OPENAI_API_KEY}
+  model: gpt-4o
+  system_prompt: test
+  temperature: 0
+  max_tokens: 16
+  timeout_seconds: 30
+execution:
+  max_retries: 3
+  retry_delay_seconds: 2
+  rate_limit_rpm: 60
+  checkpoint_path: .cp.json
+  batch_log_interval: 10
+image:
+  enabled: true
+  image_column: llm_answer
+  base_dir: ./images
+  detail: auto
+  separator: ";"
 judge:
   enabled: false
   base_url: https://api.openai.com/v1

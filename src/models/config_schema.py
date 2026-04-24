@@ -17,6 +17,12 @@ class ConversationLogMode(str, Enum):
     LATEST_ONLY = "latest_only"
 
 
+class ImageDetail(str, Enum):
+    LOW = "low"
+    HIGH = "high"
+    AUTO = "auto"
+
+
 class DatasetConfig(BaseModel):
     input_path: str
     output_path: str
@@ -74,12 +80,21 @@ class ConversationLogConfig(BaseModel):
     log_mode: ConversationLogMode = ConversationLogMode.APPEND
 
 
+class ImageConfig(BaseModel):
+    enabled: bool = False
+    image_column: str = "image_path"
+    base_dir: str = "./data/golden/images"
+    detail: ImageDetail = ImageDetail.AUTO
+    separator: str = ";"
+
+
 class AppConfig(BaseModel):
     dataset: DatasetConfig
     column_mapping: ColumnMappingConfig
     primary_llm: LLMConfig
     execution: ExecutionConfig
     conversation_log: ConversationLogConfig = Field(default_factory=ConversationLogConfig)
+    image: ImageConfig = Field(default_factory=ImageConfig)
     judge: JudgeConfig = Field(default_factory=lambda: JudgeConfig(
         enabled=False,
         base_url="https://api.openai.com/v1",
@@ -127,6 +142,14 @@ class AppConfig(BaseModel):
 
         if self.conversation_log.enabled and not self.conversation_log.log_path.strip():
             raise ValueError("conversation_log.log_path must not be empty when conversation_log.enabled=true")
+
+        if self.image.enabled:
+            if not self.image.image_column.strip():
+                raise ValueError("image.image_column must not be empty when image.enabled=true")
+            if self.image.image_column in {answer_column, output_column}:
+                raise ValueError("image.image_column must not be equal to answer_column or output_column")
+            if self.image.separator == ",":
+                raise ValueError("image.separator must not be ',' to avoid CSV parsing conflicts")
 
         return self
 

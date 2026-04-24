@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import math
 from string import Formatter
+from typing import Mapping, Sequence
 
 import pandas as pd
 
@@ -42,6 +43,16 @@ def build_judge_prompt(question: str, llm_answer: str, expected_answer: str) -> 
         "[Expected Answer]\n"
         f"{expected_answer}\n"
     )
+
+
+def build_user_content(
+    user_prompt: str,
+    image_content_parts: Sequence[Mapping[str, object]] | None = None,
+) -> str | list[dict[str, object]]:
+    if not image_content_parts:
+        return user_prompt
+
+    return [{"type": "text", "text": user_prompt}, *(dict(part) for part in image_content_parts)]
 
 
 def extract_template_placeholders(template: str) -> set[str]:

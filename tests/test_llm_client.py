@@ -59,3 +59,21 @@ def test_llm_client_call_returns_api_error_on_failure(monkeypatch):
 def test_rate_limiter_noop_when_zero(monkeypatch):
     limiter = RateLimiter(0)
     limiter.wait()
+
+
+def test_llm_client_call_accepts_content_parts_list(monkeypatch):
+    response = SimpleNamespace(
+        choices=[SimpleNamespace(message=SimpleNamespace(content="ok multimodal"))]
+    )
+    client = LLMClient(_config(), max_retries=0)
+    fake = _FakeClient([response])
+    client.client = fake
+
+    user_content = [
+        {"type": "text", "text": "Describe the image"},
+        {"type": "image_url", "image_url": {"url": "data:image/png;base64,xxx", "detail": "auto"}},
+    ]
+    out = client.call("sys", user_content)
+
+    assert out == "ok multimodal"
+    assert fake.chat.completions.calls == 1

@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 import threading
 import time
+from typing import Any, cast
 
 import httpx
 from openai import APIConnectionError, APIError, APITimeoutError, OpenAI, RateLimitError
@@ -42,9 +43,9 @@ class LLMClient:
         self.llm_config = llm_config
         self.max_retries = max_retries
         self.retry_delay_seconds = retry_delay_seconds
-        self.client = OpenAI(api_key=llm_config.api_key, base_url=llm_config.base_url, timeout=llm_config.timeout_seconds)
+        self.client: Any = OpenAI(api_key=llm_config.api_key, base_url=llm_config.base_url, timeout=llm_config.timeout_seconds)
 
-    def call(self, system_prompt: str, user_prompt: str) -> str:
+    def call(self, system_prompt: str, user_prompt: str | list[dict[str, Any]]) -> str:
         retryable = (APIError, RateLimitError, httpx.TimeoutException, APIConnectionError, APITimeoutError)
 
         @retry(
@@ -56,10 +57,13 @@ class LLMClient:
         def _call_once() -> str:
             response = self.client.chat.completions.create(
                 model=self.llm_config.model,
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": user_prompt},
-                ],
+                messages=cast(
+                    Any,
+                    [
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": user_prompt},
+                    ],
+                ),
                 temperature=self.llm_config.temperature,
                 max_tokens=self.llm_config.max_tokens,
             )

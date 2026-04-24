@@ -22,6 +22,8 @@ class CsvHandler:
 
         required_columns = set(self.config.column_mapping.input_columns.columns)
         required_columns.add(self.config.column_mapping.answer_column)
+        if self.config.image.enabled:
+            required_columns.add(self.config.image.image_column)
 
         missing = required_columns - set(df.columns)
         if missing:
@@ -32,6 +34,9 @@ class CsvHandler:
 
         if self.config.judge.enabled:
             self._ensure_text_column(df, self.config.judge.output_column)
+
+        if self.config.image.enabled:
+            self._ensure_text_column(df, self.config.image.image_column)
 
         return df
 

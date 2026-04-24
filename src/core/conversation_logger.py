@@ -29,6 +29,7 @@ class ConversationLogger:
         llm_response: str,
         status: str,
         duration_seconds: float,
+        image_paths: list[str] | None = None,
     ) -> None:
         if not self._enabled:
             return
@@ -41,6 +42,7 @@ class ConversationLogger:
             "llm_response": llm_response,
             "status": status,
             "duration_seconds": float(duration_seconds),
+            "image_paths": image_paths,
         }
         line = json.dumps(payload, ensure_ascii=False) + "\n"
 
