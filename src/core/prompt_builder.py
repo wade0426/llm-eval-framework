@@ -52,7 +52,7 @@ def build_user_content(
     if not image_content_parts:
         return user_prompt
 
-    return [{"type": "text", "text": user_prompt}, *(dict(part) for part in image_content_parts)]
+    return [*(dict(part) for part in image_content_parts), {"type": "text", "text": user_prompt}]
 
 
 def extract_template_placeholders(template: str) -> set[str]:
